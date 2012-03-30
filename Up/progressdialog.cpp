@@ -49,7 +49,7 @@ void ProgressDialog::CopyFileToLocalDisk(std::vector<std::string> Paths, std::st
             // Set d, break when we've found the proper drive.
             // POSSIBLE BUG: we'll go ahead and trust that everything is handled properly in MainForm though
             d = Drives.at(j);
-            if (QString::fromStdWString(d->FriendlyName) == Helpers::QStringFromStdString(Split.at(0)))
+            if (QString::fromWCharArray(d->FriendlyName.c_str()) == Helpers::QStringFromStdString(Split.at(0)))
                 break;
         }
 
@@ -93,7 +93,6 @@ void ProgressDialog::CopyFileToLocalDisk(std::vector<std::string> Paths, std::st
                 // Add folder handling here
             }
         }
-        FilesCompleted++;
     }
 }
 
@@ -110,14 +109,21 @@ void ProgressDialog::OnFileProgressChanged(const Progress& p)
     // If we're dealing with one file and the path count is one
     if (FilesTotal == 1 && PathCount == 1)
     {
-        // Set the total progress bar's valuesto that of the current progress bar
-        ui->progressTotal->setValue(p.Current);
+        // Set the total progress bar's values to that of the current progress bar
         if (ui->progressTotal->maximum() != p.Maximum)
             ui->progressTotal->setMaximum(p.Maximum);
+        ui->progressTotal->setValue(p.Current);
+    }
+    // If we're dealing with multiple files
+    else
+    {
+        // Set the value of the total progressbar to the number of files we're doing
+        ui->progressTotal->setMaximum(FilesTotal);
+        ui->progressTotal->setValue(FilesCompleted);
     }
 
     // Set the title of the total groupbox to reflect the current file out of x
-    ui->groupBoxTotal->setTitle(QString("Total - File %1 out of %2").arg(FilesCompleted + 1).arg(FilesTotal));
+    ui->groupBoxTotal->setTitle(QString("Completed %1 file(s) out of %2").arg(FilesCompleted + 1).arg(FilesTotal));
 
     string Title = Helpers::QStringToStdString(ui->groupBoxCurrent->title());
     // If we've just moved on to a new file
@@ -190,6 +196,8 @@ void ProgressDialog::OnFileProgressChanged(const Progress& p)
             ui->graphicsView->fitInView(ui->graphicsView->rect(), Qt::KeepAspectRatio);
         }
     }
+    if (p.Done)
+        FilesCompleted++;
     if (FilesCompleted == FilesTotal)
         this->close();
 }

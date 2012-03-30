@@ -13,6 +13,7 @@ Drive::Drive( TCHAR* Path, TCHAR* FriendlyName, bool IsUsb ) : QObject()
     this->FriendlyName = L"";
     if (!IsUsb)
     {
+        qDebug("This is a disk.  It is nice.");
         DeviceStream = new Streams::xDeviceStream(Path);
         Type = DeviceDisk;
     }
@@ -99,12 +100,20 @@ void Drive::CopyFileToLocalDisk(File *dest, string Output)
 {
     // Get the stream to the file
     Streams::xDeviceFileStream *xf = new Streams::xDeviceFileStream(dest, this);
+#ifdef _WIN32
+    TCHAR path[MAX_PATH + 1] = {0};
+    mbstowcs(path, Output.c_str(), Output.size());
+#else
+    const char* path = Output.c_str();
+#endif
     // Get a stream to the output file
-    Streams::xFileStream *output = new Streams::xFileStream(Output.c_str(), Streams::Create);
+    Streams::xFileStream *output = new Streams::xFileStream(path, Streams::Create);
     UINT64 size = xf->Length();
     BYTE Buffer[0x4000] = {0};
 
     Progress p;
+    // Set up our progress
+    p.Done = false;
     p.Maximum = Helpers::UpToNearestX(dest->Dirent.FileSize, dest->Volume->ClusterSize) / 0x4000;
     if (p.Maximum == 0)
         p.Maximum++;
@@ -112,6 +121,8 @@ void Drive::CopyFileToLocalDisk(File *dest, string Output)
     p.FilePath = dest->FullPath;
     p.Device = this;
     p.FileName = std::string(dest->Dirent.Name);
+
+    // Get the package's STFS information
     STFSPackage pack(xf);
     p.IsStfsPackage = pack.IsStfsPackage();
     if (p.IsStfsPackage)
@@ -120,6 +131,8 @@ void Drive::CopyFileToLocalDisk(File *dest, string Output)
         p.PackageName = pack.DisplayName();
     }
     emit FileProgressChanged(p);
+
+    // Start the reading
     while (size > 0x4000)
     {
         xf->SetPosition(xf->Length() - size);
@@ -134,6 +147,7 @@ void Drive::CopyFileToLocalDisk(File *dest, string Output)
     xf->Read(Buffer, size);
     output->Write(Buffer, size);
     p.Current++;
+    p.Done = true;
     emit FileProgressChanged(p);
 
     xf->Close();
@@ -749,11 +763,14 @@ vector<Drive *> Drive::GetFATXDrives( bool HardDisks )
             }
             catch (...)
             {
+                qDebug("Disk %s is bad", Helpers::QStringToStdString(QString::fromWCharArray(ddi.FriendlyName)).c_str());
+                DS = NULL;
                 continue;
             }
 
             if (DS == NULL || DS->Length() == 0 || DS->Length() < HddOffsets::Data)
             {
+                qDebug("Disk %s is bad", Helpers::QStringToStdString(QString::fromWCharArray(ddi.FriendlyName)).c_str());
                 DS = NULL;
                 // Disk is not of valid length
                 continue;
@@ -770,9 +787,12 @@ vector<Drive *> Drive::GetFATXDrives( bool HardDisks )
             // Compare the magic we read to the *actual* FATX magic
             if (Magic == FatxMagic)
             {
+                qDebug("Disk %s is good!", Helpers::QStringToStdString(QString::fromWCharArray(ddi.FriendlyName)).c_str());
                 Drive *d = new Drive(ddi.Path, ddi.FriendlyName, false);
                 ReturnVector.push_back(d);
             }
+            else
+                qDebug("Disk %s had bad magic (0x%X)", Helpers::QStringToStdString(QString::fromWCharArray(ddi.FriendlyName)).c_str(), Magic);
         }
         if (DS)
         {
@@ -966,6 +986,7 @@ void Drive::GetPhysicalDisks( vector<Drive::DISK_DRIVE_INFORMATION>& OutVector )
         }
 
         _tcscpy(AddToVector.Path, data->DevicePath);
+        qDebug("Disk path: %s", Helpers::QStringToStdString(QString::fromWCharArray(AddToVector.Path)).c_str());
 
         // Friendly name (e.g. SanDisk Cruzer USB...)
         SetupDiGetDeviceRegistryProperty (hDevInfo, &DeviceInfoData, SPDRP_FRIENDLYNAME,
@@ -973,6 +994,7 @@ void Drive::GetPhysicalDisks( vector<Drive::DISK_DRIVE_INFORMATION>& OutVector )
                                           sizeof(szDesc),   // The size, in bytes
                                           &dwSize);
         _tcscpy(AddToVector.FriendlyName, (TCHAR*)szDesc);
+        qDebug("Friendly name: %s", Helpers::QStringToStdString(QString::fromWCharArray(AddToVector.FriendlyName)).c_str());
 
         OutVector.push_back(AddToVector);
         delete data;

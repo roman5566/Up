@@ -8,9 +8,9 @@ QT       += core gui
 
 TARGET = Up
 TEMPLATE = app
-DEFINES += QT_NO_DEBUG_OUTPUT
-CXXFLAGS=-I/usr/include/qt4
-#QMAKE_CXXFLAGS_RELEASE += -Zi -g
+
+DEFINES +=# QT_NO_DEBUG_OUTPUT
+QMAKE_CXXFLAGS_RELEASE += -g
 
 SOURCES += main.cpp\
         MainForm.cpp \
