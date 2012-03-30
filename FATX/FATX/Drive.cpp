@@ -1,4 +1,4 @@
-#include "StdAfx.h"
+#include "stdafx.h"
 #include "Drive.h"
 #include "../IO/xDeviceFileStream.h"
 #include <QMetaType>
@@ -21,8 +21,10 @@ Drive::Drive( TCHAR* Path, TCHAR* FriendlyName, bool IsUsb ) : QObject()
         // USB
 #ifdef _WIN32
         QRegExp qr("*:\\");
-#else
+#elif __APPLE__
         QRegExp qr("/Volumes/*");
+#else
+        QRegExp qr("/media/*");
 #endif
         qr.setPatternSyntax(QRegExp::Wildcard);
         qr.setCaseSensitivity(Qt::CaseInsensitive);
@@ -843,7 +845,11 @@ for (int i = 0; i < 26; i+= 4)
 // First, enumerate the disks
 DIR *dir = NULL;
 dirent *ent = NULL;
+#ifdef __APPLE__
 dir = opendir("/Volumes/");
+#else
+dir = opendir("/media/");
+#endif
 if (dir != NULL)
 {
     // Read the shit
@@ -856,9 +862,13 @@ if (dir != NULL)
 
         // Create a temporary buffer to hold our disk name
         char TempName[0x100] = {0};
+#if defined __APPLE__
         sprintf(TempName, "/Volumes/%s/", ent->d_name);
+#else
+        sprintf(TempName, "/media/%s/", ent->d_name);
+#endif
         // Copy that string to the current directory's buffer
-        mbstowcs(curdir.Path, TempName, ent->d_namlen + 0xA);
+        mbstowcs(curdir.Path, TempName, strlen(ent->d_name) + 0xA);
         try
         {
             TCHAR Path[0x100] = {0};
@@ -874,7 +884,11 @@ if (dir != NULL)
             }
             else
             {
+#ifdef __APPLE__
                 swprintf(curdir.FriendlyName, wcslen(curdir.Path) - 9, &(curdir.Path[0]) + 9);
+#else
+                swprintf(curdir.FriendlyName, wcslen(curdir.Path) - 7, &(curdir.Path[0]) + 7);
+#endif
             }
             Drive *d = new Drive(curdir.Path, curdir.FriendlyName, true);
             ReturnVector.push_back(d);
@@ -969,30 +983,43 @@ dirent *ent = NULL;
 dir = opendir("/dev/");
 if (dir != NULL)
 {
+#ifdef __APPLE__
+    QRegExp exp("disk*");
+    exp.setPatternSyntax(QRegExp::Wildcard);
+#else
+    QRegExp exp("sd[a-z]");
+#endif
+    exp.setCaseSensitivity(Qt::CaseInsensitive);
     // Read the shit
     while ((ent = readdir(dir)) != NULL)
     {
+        // OSX:
         // Check the directory name, and if it starts with "disk" then keep it!
-        QRegExp exp("disk*");
-        exp.setPatternSyntax(QRegExp::Wildcard);
-        exp.setCaseSensitivity(Qt::CaseInsensitive);
+        // OTHER STUFF:
+        // Check if it starts with sd[letter a - z]
         if (exp.exactMatch(ent->d_name))
         {
             DISK_DRIVE_INFORMATION curdir = {0};
 
             char diskPath[0x50] = {0};
+#ifdef __APPLE__
             sprintf(diskPath, "/dev/r%s", ent->d_name);
+#else
+            sprintf(diskPath, "/dev/%s", ent->d_name);
+#endif
 
             mbstowcs(curdir.Path, diskPath, strlen(diskPath));
 
-            int device;
-            if ((device = open(diskPath, O_RDONLY)) > 0)
+            int device = 0;
+            device = open(diskPath, O_RDONLY);
+            qDebug("%d", device);
+            if (device > 0)
             {
-#ifdef __linux
+#if (defined __linux || defined __unix)
                 hd_driveid hd;
                 if (!ioctl(device, HDIO_GET_IDENTITY, &hd))
                 {
-                    swprintf(curdir.FriendlyName, strlen(hd) * 2, L"%hs", hd.model);
+                    mbstowcs(curdir.FriendlyName, (const char*)&hd.model, strlen((const char*)&hd.model));
                 }
 #elif defined __APPLE__
                 mbstowcs(curdir.FriendlyName, ent->d_name, strlen(ent->d_name));

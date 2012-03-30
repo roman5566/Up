@@ -1,7 +1,7 @@
 #ifndef __XDS__HG
 #define __XDS__HG
 #include "IStream.h"
-#include "../xException.h"
+#include "../xexception.h"
 
 #ifdef _WIN32
 #include <windows.h>
@@ -11,7 +11,12 @@
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/ioctl.h>
+#ifdef __APPLE__
 #include <sys/disk.h>
+#else
+#include <sys/stat.h>
+#include <linux/fs.h>
+#endif
 #include <unistd.h>
 #endif
 

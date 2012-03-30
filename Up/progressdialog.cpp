@@ -1,7 +1,7 @@
 #include "progressdialog.h"
 #include "ui_progressdialog.h"
 #include <QThread>
-#include <QtConcurrentRun.h>
+#include <QtConcurrentRun>
 #include <algorithm>
 
 ProgressDialog::ProgressDialog(QWidget *parent, Operations Operation, std::vector<std::string> Paths, std::string OutPath, std::vector<Drive*>& Drives) :

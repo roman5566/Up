@@ -1,4 +1,4 @@
-#include "StdAfx.h"
+#include "stdafx.h"
 #include "xDeviceStream.h"
 
 namespace Streams
@@ -34,8 +34,7 @@ xDeviceStream::xDeviceStream( TCHAR* DevicePath )
     {
         throw xException("Could not open HANDLE for device");
     }
-#endif
-#if (defined __APPLE__ || defined __linux)
+#elif(defined __APPLE__ || defined __linux || defined __unix)
     // UNIX/LINUX/APPLE
     char Path[0x200] = {0};
 
@@ -129,7 +128,7 @@ INT64 xDeviceStream::Length( void )
                 (INT64)Geometry.TracksPerCylinder	*
                 (INT64)Geometry.SectorsPerTrack		*
                 (INT64)Geometry.BytesPerSector;
-#else
+#elif __APPLE__
         unsigned int NumberOfSectors = 0;
         // Queue number of sectors
         ioctl(Device, DKIOCGETBLOCKCOUNT, &NumberOfSectors);
@@ -138,6 +137,8 @@ INT64 xDeviceStream::Length( void )
         ioctl(Device, DKIOCGETBLOCKSIZE, &SectorSize);
 
         _Length = (UINT64)NumberOfSectors * (UINT64)SectorSize;
+#else
+        ioctl(Device, BLKGETSIZE64, &_Length);
 #endif
 
     }

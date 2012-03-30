@@ -5,7 +5,9 @@
 
 #ifndef __STDAFX__HG
 #define __STDAFX__HG
-
+#ifdef __linux
+#include <cstring>
+#endif
 #include <stdlib.h>
 #include <stdio.h>
 #include <iostream>

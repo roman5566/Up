@@ -9,6 +9,7 @@ QT       += core gui
 TARGET = Up
 TEMPLATE = app
 DEFINES += QT_NO_DEBUG_OUTPUT
+CXXFLAGS=-I/usr/include/qt4
 #QMAKE_CXXFLAGS_RELEASE += -Zi -g
 
 SOURCES += main.cpp\
@@ -63,5 +64,24 @@ win32{
         #message("debug")
         INCLUDEPATH += $$PWD/../FATX-Win/debug
         DEPENDPATH += $$PWD/../FATX-Win/debug
+    }
+}
+unix {
+    CONFIG(release, debug|release) {
+        unix:!macx:!symbian: LIBS += -L$$PWD/../FATX-build-desktop-Desktop_Qt_4_8_0_for_GCC__Qt_SDK__Release/ -lFATX
+
+        INCLUDEPATH += $$PWD/../FATX-build-desktop-Desktop_Qt_4_8_0_for_GCC__Qt_SDK__Release
+        DEPENDPATH += $$PWD/../FATX-build-desktop-Desktop_Qt_4_8_0_for_GCC__Qt_SDK__Release
+
+        unix:!macx:!symbian: PRE_TARGETDEPS += $$PWD/../FATX-build-desktop-Desktop_Qt_4_8_0_for_GCC__Qt_SDK__Release/libFATX.a
+    }
+
+    CONFIG(debug, debug|release) {
+        unix:!macx:!symbian: LIBS += -L$$PWD/../FATX-build-desktop-Desktop_Qt_4_8_0_for_GCC__Qt_SDK__Debug/ -lFATX
+
+        INCLUDEPATH += $$PWD/../FATX-build-desktop-Desktop_Qt_4_8_0_for_GCC__Qt_SDK__Debug
+        DEPENDPATH += $$PWD/../FATX-build-desktop-Desktop_Qt_4_8_0_for_GCC__Qt_SDK__Debug
+
+        unix:!macx:!symbian: PRE_TARGETDEPS += $$PWD/../FATX-build-desktop-Desktop_Qt_4_8_0_for_GCC__Qt_SDK__Debug/libFATX.a
     }
 }
