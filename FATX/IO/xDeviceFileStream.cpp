@@ -3,7 +3,7 @@
 
 namespace Streams
 {
-xDeviceFileStream::xDeviceFileStream(string Path, Drive *device)
+xDeviceFileStream::xDeviceFileStream(std::string Path, Drive *device)
 {
     File *dest = device->FileFromPath(Path);
     Initialize(dest, device);
@@ -241,7 +241,7 @@ UINT64 xDeviceFileStream::ReadUInt64( void )
 
 int xDeviceFileStream::Read( BYTE* DestBuff, int Count )
 {
-    //SetPosition(Position());
+    SetPosition(Position());
     // How many clusters the data we're reading is spread across
     int ClustersSpanned = Helpers::UpToNearestX(Count + (UserPosition - Helpers::DownToNearestX(UserPosition, xf->Volume->ClusterSize)), xf->Volume->ClusterSize) / xf->Volume->ClusterSize;
     // Read the first amount of data...
@@ -254,12 +254,35 @@ int xDeviceFileStream::Read( BYTE* DestBuff, int Count )
         offset += tcount;
         SetPosition(Position() + tcount);
         Count -= tcount;
+
+        int CurrentCluster = 0;
+        // The number of clusters that are consecutively aligned on the disk
+        int ConsecutiveClusters = 1;
+        // This will hold the value of the last cluster
+        int LastCluster = 0;
+
         for (int i = 1; i < ClustersSpanned - 1; i++)
         {
-            tcount = device->DeviceStream->Read(DestBuff + offset, Count);
+            CurrentCluster = (UserPosition - (UserPosition % xf->Volume->ClusterSize)) / xf->Volume->ClusterSize;
+            ConsecutiveClusters = 1;
+            LastCluster = xf->ClusterChain[CurrentCluster - 1];
+            // Starting at the next cluster, and looping up until the last cluster, minus one...
+            for (int j = CurrentCluster + 1; j < CurrentCluster + ClustersSpanned - 1; j++)
+            {
+                // If this cluster index is equal to the last cluster index, + 1...
+                if (xf->ClusterChain[j] == LastCluster + 1 && ConsecutiveClusters < 5)
+                    // Shit, it's consecutive.  We better continue.
+                    ConsecutiveClusters++;
+                else
+                    // SHIT, IT'S NOT CONSECUTIVE.  WE BETTER NOT DO STUFF TO THINGS
+                    break;
+            }
+            tcount = device->DeviceStream->Read(DestBuff + offset, xf->Volume->ClusterSize * ConsecutiveClusters);
             offset += tcount;
             Count -= tcount;
             SetPosition(Position() + tcount);
+            // So that we don't re-read these clusters...
+            i += ConsecutiveClusters - 1;
         }
         // Read the last bit of data
         tcount = device->DeviceStream->Read(DestBuff + offset, Count);
@@ -275,7 +298,7 @@ int xDeviceFileStream::Read( BYTE* DestBuff, int Count )
     }
 }
 
-string xDeviceFileStream::ReadString( size_t Count )
+std::string xDeviceFileStream::ReadString( size_t Count )
 {
     if (IsClosed)
     {
@@ -289,19 +312,19 @@ string xDeviceFileStream::ReadString( size_t Count )
     memset(Buffer, 0, Count + 1);
 
     Read(Buffer, Count);
-    string ret((char*)Buffer);
+    std::string ret((char*)Buffer);
     delete[] Buffer;
 
     return ret;
 }
 
-string xDeviceFileStream::ReadCString( void )
+std::string xDeviceFileStream::ReadCString( void )
 {
     if (IsClosed)
     {
         throw xException("Stream is closed. At: xDeviceFileStream::ReadCString");
     }
-    vector<char> temp;
+    std::vector<char> temp;
     bool Null;
     do
     {
@@ -322,13 +345,13 @@ string xDeviceFileStream::ReadCString( void )
 
     DetermineAndDoEndianSwap(tempString, temp.size() - 1, sizeof(char));
 
-    string Return(tempString);
+    std::string Return(tempString);
 
     delete[] tempString;
     return Return;
 }
 
-wstring xDeviceFileStream::ReadUnicodeString( size_t Count )
+std::wstring xDeviceFileStream::ReadUnicodeString( size_t Count )
 {
     if (IsClosed)
     {
@@ -347,7 +370,7 @@ wstring xDeviceFileStream::ReadUnicodeString( size_t Count )
     {
         DetermineAndDoEndianSwap(Buffer + i, sizeof(wchar_t), sizeof(char));
     }
-    wstring ret((TCHAR*)Buffer);
+    std::wstring ret((TCHAR*)Buffer);
     delete[] Buffer;
 
     return ret;
